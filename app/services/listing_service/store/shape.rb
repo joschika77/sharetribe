@@ -11,7 +11,8 @@ module ListingService::Store::Shape
     [:transaction_process_id, :fixnum, :mandatory],
     [:translations, :array, :optional], # TODO Only temporary
     [:shipping_enabled, :bool, :mandatory],
-    [:units, :array, default: []] # Mandatory only if price_enabled
+    [:units, :array, default: []], # Mandatory only if price_enabled
+    [:url_source, :string, :mandatory]
   )
 
   Shape = EntityUtils.define_builder(
@@ -116,7 +117,9 @@ module ListingService::Store::Shape
       raise ArgumentError.new("Unknown unit type #{unit_type}")
     end
 
-    model_hash.except(:units)
+    model_hash[:url] = uniq_url(hash[:url_source], hash[:community_id])
+
+    model_hash.except(:units, :url_source)
   end
 
   def from_tt_model_attributes(model_hash)
@@ -138,5 +141,22 @@ module ListingService::Store::Shape
 
     hash.except(:units)
   end
+
+  def uniq_url(url_source, community_id)
+    blacklist = ['new', 'all']
+    current_url = url_source.to_url
+    base_url = current_url
+
+    transaction_types = TransactionTypeModel.where(community_id: community_id)
+
+    i = 1
+    while blacklist.include?(current_url) || transaction_types.find { |tt| tt.url == current_url }.present? do
+      current_url = "#{base_url}#{i}"
+      i += 1
+    end
+    current_url
+
+  end
+
 
 end
